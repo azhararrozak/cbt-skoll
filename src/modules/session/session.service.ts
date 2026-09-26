@@ -11,7 +11,7 @@ import {
 } from '../../models';
 import { ApiError } from '../../utils/apiError';
 import type { AuthUser } from '../../middleware/auth.middleware';
-import type { ListSessionsInput, SubmitAnswerInput } from './session.schema';
+import type { ListSessionsInput, SubmitAnswerInput, ToggleFlagInput } from './session.schema';
 
 async function findOrFail(id: number): Promise<ExamSession> {
   const session = await db.query.examSessions.findFirst({ where: eq(examSessions.id, id) });
@@ -186,6 +186,14 @@ export const sessionService = {
       .where(eq(questions.bankId, exam.bankId))
       .orderBy(questions.id);
 
+    // Urutkan sesuai urutan acak milik sesi (bila diacak saat mulai)
+    const ordered = session.questionOrder
+      ? session.questionOrder
+          .map((qid) => questionList.find((q) => q.id === qid))
+          .filter((q): q is Question => Boolean(q))
+          .concat(questionList.filter((q) => !session.questionOrder!.includes(q.id)))
+      : questionList;
+
     const answerList = await db
       .select()
       .from(examAnswers)
@@ -195,7 +203,7 @@ export const sessionService = {
     // Kunci jawaban hanya dibuka jika ujian selesai (bagi siswa) atau peminta guru/admin
     const reveal = session.status === 'completed' || !isOwnerStudent;
 
-    const items = questionList.map((question) => {
+    const items = ordered.map((question) => {
       const answer = answerMap.get(question.id);
       return {
         id: question.id,
@@ -224,6 +232,8 @@ export const sessionService = {
         expiresAt: session.expiresAt,
         finishedAt: session.finishedAt,
         score: session.score,
+        minSubmitMinutes: exam.minSubmitMinutes,
+        flaggedQuestions: session.flaggedQuestions ?? [],
         remainingSeconds:
           session.status === 'in_progress'
             ? Math.max(0, Math.floor((session.expiresAt.getTime() - Date.now()) / 1000))
@@ -234,10 +244,11 @@ export const sessionService = {
         title: exam.title,
         description: exam.description,
         durationMinutes: exam.durationMinutes,
+        showScore: exam.showScore,
       },
       progress: {
         answered: answerList.length,
-        total: questionList.length,
+        total: ordered.length,
       },
       questions: items,
     };
@@ -284,10 +295,49 @@ export const sessionService = {
     return saved;
   },
 
+  // Tandai / batalkan tanda ragu-ragu pada satu soal
+  async toggleFlag(id: number, input: ToggleFlagInput, actor: AuthUser): Promise<number[]> {
+    const session = await findOrFail(id);
+    ensureOwner(session, actor);
+    await ensureActive(session);
+
+    const current = new Set(session.flaggedQuestions ?? []);
+    if (input.flagged) {
+      current.add(input.questionId);
+    } else {
+      current.delete(input.questionId);
+    }
+    const flags = [...current].sort((a, b) => a - b);
+
+    await db
+      .update(examSessions)
+      .set({ flaggedQuestions: flags, updatedAt: new Date() })
+      .where(eq(examSessions.id, id));
+
+    return flags;
+  },
+
   // Selesaikan ujian: hitung nilai akhir
   async finish(id: number, actor: AuthUser): Promise<Record<string, unknown>> {
     const session = await findOrFail(id);
     ensureOwner(session, actor);
+
+    const exam = await getExamOrFail(session.examId);
+
+    // Siswa tidak boleh menyelesaikan ujian sebelum waktu minimal pengerjaan
+    if (session.status === 'in_progress' && exam.minSubmitMinutes > 0) {
+      const elapsedSec = Math.floor((Date.now() - session.startedAt.getTime()) / 1000);
+      const minSec = exam.minSubmitMinutes * 60;
+      if (elapsedSec < minSec && Date.now() < session.expiresAt.getTime()) {
+        const waitSec = minSec - elapsedSec;
+        const minutes = Math.floor(waitSec / 60);
+        const seconds = waitSec % 60;
+        throw ApiError.badRequest(
+          `Jawaban bisa dikumpulkan mulai menit ke-${exam.minSubmitMinutes}. ` +
+            `Tunggu ${minutes} menit ${seconds} detik lagi.`,
+        );
+      }
+    }
 
     const current = await autoFinalizeIfExpired(session);
     const finalized = current.status === 'completed' ? current : await finalize(current);
@@ -299,6 +349,41 @@ export const sessionService = {
       finishedAt: finalized.finishedAt,
       ...summary,
     };
+  },
+
+  // Selesaikan paksa sesi siswa dari sisi admin/guru
+  async forceFinish(id: number, actor: AuthUser): Promise<Record<string, unknown>> {
+    const session = await findOrFail(id);
+    if (actor.role === 'siswa') {
+      throw ApiError.forbidden('Aksi ini hanya untuk admin/guru');
+    }
+    await ensureExamManageable(session.examId, actor);
+
+    const current = await autoFinalizeIfExpired(session);
+    if (current.status === 'completed') {
+      throw ApiError.badRequest('Sesi ujian ini sudah selesai');
+    }
+    const finalized = await finalize(current);
+    const summary = await getSummary(finalized);
+
+    return {
+      sessionId: finalized.id,
+      status: finalized.status,
+      finishedAt: finalized.finishedAt,
+      ...summary,
+    };
+  },
+
+  // Reset sesi: hapus sesi + seluruh jawabannya agar siswa dapat mulai ulang
+  async reset(id: number, actor: AuthUser): Promise<{ examId: number; studentId: number }> {
+    const session = await findOrFail(id);
+    if (actor.role === 'siswa') {
+      throw ApiError.forbidden('Aksi ini hanya untuk admin/guru');
+    }
+    await ensureExamManageable(session.examId, actor);
+
+    await db.delete(examSessions).where(eq(examSessions.id, id));
+    return { examId: session.examId, studentId: session.studentId };
   },
 
   // Hasil detail per soal (siswa setelah selesai, atau guru/admin)
@@ -348,6 +433,7 @@ export const sessionService = {
       startedAt: current.startedAt,
       finishedAt: current.finishedAt,
       score: current.score,
+      showScore: exam.showScore,
       totalPoints: items.reduce((sum, q) => sum + q.points, 0),
       totalQuestions: items.length,
       answers: items,

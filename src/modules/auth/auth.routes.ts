@@ -1,15 +1,16 @@
 import { Router } from 'express';
-import { signUp, signIn, refresh, logout, me } from './auth.controller';
+import { signIn, refresh, logout, me } from './auth.controller';
 import { authMiddleware, authorize } from '../../middleware/auth.middleware';
 import { validateBody } from '../../middleware/validate.middleware';
 import { authLimiter } from '../../middleware/rateLimit.middleware';
 import { sendSuccess } from '../../utils/response';
-import { signUpSchema, signInSchema, refreshSchema } from './auth.schema';
+import { signInSchema, refreshSchema } from './auth.schema';
 
 const router = Router();
 
 // Public routes (dengan rate limit lebih ketat)
-router.post('/signup', authLimiter, validateBody(signUpSchema), signUp);
+// Pendaftaran akun siswa dilakukan oleh admin/guru (buat akun atau import Excel),
+// sehingga tidak ada endpoint signup publik.
 router.post('/signin', authLimiter, validateBody(signInSchema), signIn);
 router.post('/refresh', authLimiter, validateBody(refreshSchema), refresh);
 router.post('/logout', validateBody(refreshSchema), logout);

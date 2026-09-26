@@ -2,18 +2,7 @@ import type { Request, Response } from 'express';
 import { authService } from './auth.service';
 import { toPublicUser } from '../../utils/user.serializer';
 import { sendSuccess } from '../../utils/response';
-import type { SignInInput, SignUpInput } from './auth.schema';
-
-export const signUp = async (req: Request, res: Response): Promise<void> => {
-  const input = req.body as SignUpInput;
-  const { user, accessToken, refreshToken } = await authService.register(input);
-
-  sendSuccess(res, {
-    status: 201,
-    message: 'User berhasil dibuat',
-    data: { user: toPublicUser(user), accessToken, refreshToken },
-  });
-};
+import type { SignInInput } from './auth.schema';
 
 export const signIn = async (req: Request, res: Response): Promise<void> => {
   const input = req.body as SignInInput;

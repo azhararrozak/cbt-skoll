@@ -2,22 +2,29 @@ import { z } from 'zod';
 
 export const createClassSchema = z.object({
   name: z.string().trim().min(2, 'nama kelas minimal 2 karakter').max(150),
+  // Jenjang kelas: "VII", "VIII", "IX", "1".."6", "X".."XII", dll.
+  grade: z.string().trim().min(1, 'jenjang wajib diisi').max(30).default('Umum'),
+  // Jurusan/konsentrasi, default "Umum" agar cocok untuk SD/SMP
+  jurusan: z.string().trim().min(1, 'jurusan wajib diisi').max(100).default('Umum'),
   description: z.string().trim().max(1000).optional(),
 });
 
 export const updateClassSchema = z
   .object({
     name: z.string().trim().min(2, 'nama kelas minimal 2 karakter').max(150).optional(),
+    grade: z.string().trim().min(1, 'jenjang wajib diisi').max(30).optional(),
+    jurusan: z.string().trim().min(1, 'jurusan wajib diisi').max(100).optional(),
     description: z.string().trim().max(1000).optional(),
   })
   .refine((data) => Object.keys(data).length > 0, {
-    message: 'Minimal satu field (name/description) harus diisi',
+    message: 'Minimal satu field (name/grade/jurusan/description) harus diisi',
   });
 
 export const listClassesSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(10),
   search: z.string().trim().max(100).optional(),
+  grade: z.string().trim().max(30).optional(),
 });
 
 export const addClassMembersSchema = z.object({
@@ -33,7 +40,7 @@ export const idParamSchema = z.object({
 
 export const classMemberParamSchema = z.object({
   id: z.coerce.number().int().positive('id harus berupa angka positif'),
-  studentId: z.coerce.number().int().positive('studentId harus berupa angka positif'),
+  studentId: z.coerce.number().int().positive('studentId harus angka positif'),
 });
 
 export type CreateClassInput = z.infer<typeof createClassSchema>;

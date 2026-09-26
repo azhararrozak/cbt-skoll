@@ -4,6 +4,10 @@ import { timestamps, users } from './user.model';
 export const classes = pgTable('classes', {
   id: serial('id').primaryKey(),
   name: varchar('name', { length: 150 }).notNull(),
+  // Jenjang kelas, misal: "1".."6" (SD), "VII".."IX" (SMP), "X".."XII" (SMA/SMK)
+  grade: varchar('grade', { length: 30 }).notNull().default('Umum'),
+  // Jurusan/konsentrasi, default "Umum" agar netral untuk SD/SMP
+  jurusan: varchar('jurusan', { length: 100 }).notNull().default('Umum'),
   description: text('description'),
   createdBy: integer('created_by')
     .notNull()

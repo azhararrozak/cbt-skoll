@@ -2,7 +2,9 @@ import { Router } from 'express';
 import {
   createExam,
   deleteExam,
+  getActiveExamSummary,
   getExam,
+  getExamMonitoring,
   getExamResults,
   listAvailableExams,
   listExams,
@@ -21,6 +23,9 @@ router.use(authMiddleware);
 // Siswa: daftar ujian tersedia (harus sebelum route /:id)
 router.get('/available', authorize('siswa'), listAvailableExams);
 
+// Guru/admin: ringkasan ujian berlangsung (harus sebelum route /:id)
+router.get('/active-summary', authorize('admin', 'guru'), getActiveExamSummary);
+
 // Kelola ujian (admin & guru)
 router.get('/', authorize('admin', 'guru'), listExams);
 router.post('/', authorize('admin', 'guru'), validateBody(createExamSchema), createExam);
@@ -31,6 +36,9 @@ router.post('/:id/regenerate-token', authorize('admin', 'guru'), regenerateToken
 
 // Hasil ujian (admin & guru)
 router.get('/:id/results', authorize('admin', 'guru'), getExamResults);
+
+// Pemantauan pengerjaan siswa (admin & guru)
+router.get('/:id/monitoring', authorize('admin', 'guru'), getExamMonitoring);
 
 // Siswa: mulai / lanjutkan ujian dengan token
 router.post('/:id/start', authorize('siswa'), validateBody(startExamSchema), startExam);

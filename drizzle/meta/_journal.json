@@ -8,6 +8,48 @@
       "when": 1790924653277,
       "tag": "0000_real_mimic",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1790924653278,
+      "tag": "0001_chubby_supernaut",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790924653279,
+      "tag": "0002_magical_red_skull",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1790924653280,
+      "tag": "0003_first_hannibal_king",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1790924653281,
+      "tag": "0004_thick_blue_marvel",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1790924653282,
+      "tag": "0005_yummy_princess_powerful",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790924653283,
+      "tag": "0006_certain_spectrum",
+      "breakpoints": true
     }
   ]
 }

@@ -1,7 +1,7 @@
 import bcrypt from 'bcryptjs';
 import { eq } from 'drizzle-orm';
 import { db, pool } from '../config/db';
-import { classMembers, classes, exams, questionBanks, questions, users } from '../models';
+import { classMembers, classes, examClasses, exams, questionBanks, questions, users } from '../models';
 
 const BCRYPT_ROUNDS = 10;
 const DEFAULT_PASSWORD = 'password123';
@@ -10,6 +10,7 @@ async function upsertUser(input: {
   name: string;
   email: string;
   role: 'admin' | 'guru' | 'siswa';
+  nisn?: string;
 }) {
   const existing = await db.query.users.findFirst({ where: eq(users.email, input.email) });
   if (existing) {
@@ -18,7 +19,7 @@ async function upsertUser(input: {
   const hashed = await bcrypt.hash(DEFAULT_PASSWORD, BCRYPT_ROUNDS);
   const [user] = await db
     .insert(users)
-    .values({ ...input, password: hashed })
+    .values({ ...input, nisn: input.nisn ?? null, password: hashed })
     .returning();
   return user;
 }
@@ -29,8 +30,8 @@ async function seed(): Promise<void> {
   const [_admin, guru, siswa1, siswa2] = await Promise.all([
     upsertUser({ name: 'Admin', email: 'admin@cbt.test', role: 'admin' }),
     upsertUser({ name: 'Budi Guru', email: 'guru@cbt.test', role: 'guru' }),
-    upsertUser({ name: 'Siswa Satu', email: 'siswa1@cbt.test', role: 'siswa' }),
-    upsertUser({ name: 'Siswa Dua', email: 'siswa2@cbt.test', role: 'siswa' }),
+    upsertUser({ name: 'Siswa Satu', email: 'siswa1@cbt.test', role: 'siswa', nisn: '0012345678' }),
+    upsertUser({ name: 'Siswa Dua', email: 'siswa2@cbt.test', role: 'siswa', nisn: '0087654321' }),
   ]);
 
   const existingExam = await db.query.exams.findFirst();
@@ -117,7 +118,6 @@ async function seed(): Promise<void> {
       title: 'Ujian Matematika Dasar',
       description: 'Ujian demo CBT, kerjakan semua soal',
       bankId: bank.id,
-      classId: kelas.id,
       token: 'UJIAN1',
       durationMinutes: 60,
       startAt,
@@ -127,10 +127,12 @@ async function seed(): Promise<void> {
     })
     .returning();
 
+  await db.insert(examClasses).values({ examId: exam.id, classId: kelas.id });
+
   console.log('✅ Seed selesai. Akun demo (password: password123):');
   console.log(`   admin  : admin@cbt.test`);
   console.log(`   guru   : guru@cbt.test`);
-  console.log(`   siswa  : siswa1@cbt.test, siswa2@cbt.test (kelas: ${kelas.name})`);
+  console.log(`   siswa  : NISN 0012345678 (Siswa Satu), 0087654321 (Siswa Dua) — kelas: ${kelas.name}`);
   console.log(`   ujian  : "${exam.title}" token: ${exam.token} (durasi ${exam.durationMinutes} menit)`);
 }
 

@@ -2,6 +2,7 @@ import {
   boolean,
   index,
   integer,
+  jsonb,
   pgEnum,
   pgTable,
   serial,
@@ -29,6 +30,10 @@ export const examSessions = pgTable(
     startedAt: timestamp('started_at', { withTimezone: true }).notNull().defaultNow(),
     // Batas waktu pengerjaan = startedAt + durasi ujian
     expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    // Urutan id soal saat ujian diacak (jsonb array angka); null = urutan normal
+    questionOrder: jsonb('question_order').$type<number[]>(),
+    // Daftar id soal yang ditandai ragu-ragu oleh siswa
+    flaggedQuestions: jsonb('flagged_questions').$type<number[]>(),
     finishedAt: timestamp('finished_at', { withTimezone: true }),
     score: integer('score').notNull().default(0),
     ...timestamps,

@@ -51,7 +51,9 @@ export const updateExam = async (req: Request, res: Response): Promise<void> => 
 
 export const deleteExam = async (req: Request, res: Response): Promise<void> => {
   const { id } = idParamSchema.parse(req.params);
-  await examService.remove(id, req.user!);
+  // ?force=true → hapus permanen beserta seluruh riwayat nilai (khusus admin)
+  const force = req.query.force === 'true';
+  await examService.remove(id, req.user!, force);
 
   sendSuccess(res, { message: 'Ujian berhasil dihapus' });
 };
@@ -94,6 +96,20 @@ export const startExam = async (req: Request, res: Response): Promise<void> => {
       resumed: result.resumed,
     },
   });
+};
+
+// Guru/admin: pemantauan pengerjaan siswa (progres + sisa waktu)
+export const getExamMonitoring = async (req: Request, res: Response): Promise<void> => {
+  const { id } = idParamSchema.parse(req.params);
+  const result = await examService.monitoring(id, req.user!);
+
+  sendSuccess(res, { message: 'Pemantauan ujian', data: result });
+};
+
+// Guru/admin: ringkasan ujian yang sedang berlangsung (widget dashboard)
+export const getActiveExamSummary = async (req: Request, res: Response): Promise<void> => {
+  const data = await examService.activeSummary(req.user!);
+  sendSuccess(res, { message: 'Ujian yang sedang berlangsung', data });
 };
 
 // Guru/admin: rekap hasil ujian

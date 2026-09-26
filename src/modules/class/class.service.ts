@@ -1,6 +1,6 @@
-import { and, asc, count, desc, eq, ilike, inArray, type SQL } from 'drizzle-orm';
+import { and, asc, count, eq, ilike, inArray, type SQL } from 'drizzle-orm';
 import { db } from '../../config/db';
-import { classMembers, classes, exams, users, type Kelas } from '../../models';
+import { classMembers, classes, examClasses, users, type Kelas } from '../../models';
 import { ApiError } from '../../utils/apiError';
 import type { AuthUser } from '../../middleware/auth.middleware';
 import type {
@@ -36,13 +36,17 @@ export const classService = {
     if (params.search) {
       conditions.push(ilike(classes.name, `%${params.search}%`));
     }
+    if (params.grade) {
+      conditions.push(eq(classes.grade, params.grade));
+    }
     const where = conditions.length > 0 ? and(...conditions) : undefined;
 
+    // Urutkan per jenjang lalu nama kelas agar mudah dikelompokkan di UI
     const rows = await db
       .select()
       .from(classes)
       .where(where)
-      .orderBy(desc(classes.createdAt))
+      .orderBy(asc(classes.grade), asc(classes.name))
       .limit(params.limit)
       .offset((params.page - 1) * params.limit);
 
@@ -72,6 +76,8 @@ export const classService = {
       .insert(classes)
       .values({
         name: input.name,
+        grade: input.grade,
+        jurusan: input.jurusan,
         description: input.description ?? null,
         createdBy: actor.id,
       })
@@ -97,9 +103,12 @@ export const classService = {
     const kelas = await findOrFail(id);
     ensureCanManage(kelas, actor);
 
-    const [examRow] = await db.select({ value: count() }).from(exams).where(eq(exams.classId, id));
+    const [examRow] = await db
+      .select({ value: count() })
+      .from(examClasses)
+      .where(eq(examClasses.classId, id));
     if (examRow.value > 0) {
-      throw ApiError.conflict('Kelas masih memiliki ujian dan tidak bisa dihapus');
+      throw ApiError.conflict('Kelas masih menjadi peserta ujian dan tidak bisa dihapus');
     }
 
     await db.delete(classes).where(eq(classes.id, id));
@@ -108,12 +117,18 @@ export const classService = {
   async listMembers(
     classId: number,
     actor: AuthUser,
-  ): Promise<{ id: number; name: string; email: string }[]> {
+  ): Promise<{ id: number; name: string; email: string; nis: string | null; nisn: string | null }[]> {
     const kelas = await findOrFail(classId);
     ensureCanManage(kelas, actor);
 
     const rows = await db
-      .select({ id: users.id, name: users.name, email: users.email })
+      .select({
+        id: users.id,
+        name: users.name,
+        email: users.email,
+        nis: users.nis,
+        nisn: users.nisn,
+      })
       .from(classMembers)
       .innerJoin(users, eq(users.id, classMembers.studentId))
       .where(eq(classMembers.classId, classId))

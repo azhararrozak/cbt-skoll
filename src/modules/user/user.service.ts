@@ -37,7 +37,7 @@ export const userService = {
     }
     if (params.search) {
       const term = `%${params.search}%`;
-      conditions.push(or(ilike(users.name, term), ilike(users.email, term)));
+      conditions.push(or(ilike(users.name, term), ilike(users.email, term), ilike(users.nisn, term)));
     }
     const where = conditions.length > 0 ? and(...conditions) : undefined;
 
@@ -46,6 +46,8 @@ export const userService = {
         id: users.id,
         name: users.name,
         email: users.email,
+        nis: users.nis,
+        nisn: users.nisn,
         role: users.role,
         createdAt: users.createdAt,
         updatedAt: users.updatedAt,
@@ -70,11 +72,26 @@ export const userService = {
       throw ApiError.forbidden('Guru hanya bisa membuat akun siswa');
     }
 
-    const existing = await db.query.users.findFirst({
-      where: eq(users.email, input.email),
+    // Email siswa opsional: dibuat otomatis dari NISN
+    const email =
+      input.role === 'siswa' && !input.email
+        ? `${input.nisn}@siswa.cbt.local`
+        : (input.email as string);
+
+    const existingByEmail = await db.query.users.findFirst({
+      where: eq(users.email, email),
     });
-    if (existing) {
+    if (existingByEmail) {
       throw ApiError.conflict('Email sudah terdaftar');
+    }
+
+    if (input.nisn) {
+      const existingByNisn = await db.query.users.findFirst({
+        where: eq(users.nisn, input.nisn),
+      });
+      if (existingByNisn) {
+        throw ApiError.conflict('NISN sudah terdaftar');
+      }
     }
 
     const hashed = await bcrypt.hash(input.password, BCRYPT_ROUNDS);
@@ -82,7 +99,9 @@ export const userService = {
       .insert(users)
       .values({
         name: input.name,
-        email: input.email,
+        email,
+        nis: input.nis || null,
+        nisn: input.nisn || null,
         password: hashed,
         role: input.role,
       })
@@ -93,6 +112,15 @@ export const userService = {
 
   async update(id: number, input: UpdateUserInput, actingUserId: number): Promise<User> {
     const user = await findOrFail(id);
+
+    if (input.nisn && input.nisn !== user.nisn) {
+      const existingByNisn = await db.query.users.findFirst({
+        where: eq(users.nisn, input.nisn),
+      });
+      if (existingByNisn) {
+        throw ApiError.conflict('NISN sudah terdaftar');
+      }
+    }
 
     if (input.email && input.email !== user.email) {
       const existing = await db.query.users.findFirst({
@@ -113,7 +141,7 @@ export const userService = {
       }
       shouldRevokeTokens = true;
     }
-    if (input.email && input.email !== user.email) {
+    if ((input.email && input.email !== user.email) || (input.nisn && input.nisn !== user.nisn)) {
       shouldRevokeTokens = true;
     }
 

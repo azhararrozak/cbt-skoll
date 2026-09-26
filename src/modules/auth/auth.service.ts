@@ -6,9 +6,7 @@ import { env } from '../../config/env';
 import { refreshTokens, users, type User, type UserRole } from '../../models';
 import { signAccessToken, signRefreshToken, verifyRefreshToken } from '../../utils/jwt';
 import { ApiError } from '../../utils/apiError';
-import type { SignInInput, SignUpInput } from './auth.schema';
-
-const BCRYPT_ROUNDS = 10;
+import type { SignInInput } from './auth.schema';
 
 interface TokenPair {
   accessToken: string;
@@ -31,34 +29,26 @@ async function issueTokens(user: {
 }
 
 export const authService = {
-  async register(input: SignUpInput): Promise<{ user: User } & TokenPair> {
-    const existing = await db.query.users.findFirst({
-      where: eq(users.email, input.email),
-    });
-    if (existing) {
-      throw ApiError.conflict('Email sudah terdaftar');
+  async login(input: SignInInput): Promise<{ user: User } & TokenPair> {
+    const identifier = input.identifier.trim();
+
+    // Identifier berisi "@" dicari sebagai email; angka dicari sebagai NISN,
+    // dengan fallback ke NIS sekolah untuk siswa yang belum punya NISN
+    let user = identifier.includes('@')
+      ? await db.query.users.findFirst({ where: eq(users.email, identifier.toLowerCase()) })
+      : await db.query.users.findFirst({ where: eq(users.nisn, identifier) });
+
+    if (!user && !identifier.includes('@')) {
+      user = await db.query.users.findFirst({ where: eq(users.nis, identifier) });
     }
 
-    const hashed = await bcrypt.hash(input.password, BCRYPT_ROUNDS);
-    const [user] = await db
-      .insert(users)
-      .values({ name: input.name, email: input.email, password: hashed })
-      .returning();
-
-    return { user, ...(await issueTokens(user)) };
-  },
-
-  async login(input: SignInInput): Promise<{ user: User } & TokenPair> {
-    const user = await db.query.users.findFirst({
-      where: eq(users.email, input.email),
-    });
     if (!user) {
-      throw ApiError.unauthorized('Email atau password salah');
+      throw ApiError.unauthorized('Email/NISN atau password salah');
     }
 
     const isValidPassword = await bcrypt.compare(input.password, user.password);
     if (!isValidPassword) {
-      throw ApiError.unauthorized('Email atau password salah');
+      throw ApiError.unauthorized('Email/NISN atau password salah');
     }
 
     return { user, ...(await issueTokens(user)) };
