@@ -43,6 +43,9 @@ export const uploadExcel = makeUploader(['.xlsx'], 2);
 /** Upload file Word (.docx) dengan field name "file" */
 export const uploadDocx = makeUploader(['.docx'], 5);
 
+/** Upload gambar logo (png/jpg) dengan field name "file" */
+export const uploadImage = makeUploader(['.png', '.jpg', '.jpeg'], 1);
+
 /** Upload file JSON backup dengan field name "file" */
 export const uploadJson = makeUploader(['.json'], 10);
 

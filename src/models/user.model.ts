@@ -16,6 +16,8 @@ export const users = pgTable('users', {
   // NIS: nomor induk sekolah (identitas internal sekolah, pelengkap NISN)
   nis: varchar('nis', { length: 30 }),
   password: varchar('password', { length: 255 }).notNull(),
+  // Password awal (plain text) untuk ditampilkan di kartu peserta; nullable untuk backward compat
+  initialPassword: varchar('initial_password', { length: 255 }),
   role: userRoleEnum('role').notNull().default('siswa'),
   ...timestamps,
 });

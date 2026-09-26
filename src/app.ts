@@ -12,6 +12,7 @@ import examRoutes from './modules/exam/exam.routes';
 import sessionRoutes from './modules/session/session.routes';
 import importRoutes from './modules/import/import.routes';
 import backupRoutes from './modules/backup/backup.routes';
+import eventRoutes from './modules/event/event.routes';
 
 const app = express();
 
@@ -46,6 +47,7 @@ app.use('/api/exams', examRoutes);
 app.use('/api/sessions', sessionRoutes);
 app.use('/api/imports', importRoutes);
 app.use('/api/backup', backupRoutes);
+app.use('/api/events', eventRoutes);
 
 app.use(notFoundHandler);
 app.use(errorHandler);

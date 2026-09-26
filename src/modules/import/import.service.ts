@@ -143,7 +143,7 @@ export async function importUsers(
     const hashed = await bcrypt.hash(password, BCRYPT_ROUNDS);
     const [user] = await db
       .insert(users)
-      .values({ name, email, nis: nis || null, nisn: nisn || null, password: hashed, role })
+      .values({ name, email, nis: nis || null, nisn: nisn || null, password: hashed, initialPassword: password, role })
       .returning({ id: users.id });
     summary.created += 1;
 
@@ -224,7 +224,7 @@ export async function importClassStudents(
       const hashed = await bcrypt.hash(password, BCRYPT_ROUNDS);
       const [created] = await db
         .insert(users)
-        .values({ name, email, nis: nis || null, nisn: nisn || null, password: hashed, role: 'siswa' })
+        .values({ name, email, nis: nis || null, nisn: nisn || null, password: hashed, initialPassword: password, role: 'siswa' })
         .returning({ id: users.id });
       student = { id: created.id };
       summary.created += 1;

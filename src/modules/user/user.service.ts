@@ -49,6 +49,7 @@ export const userService = {
         nis: users.nis,
         nisn: users.nisn,
         role: users.role,
+        initialPassword: users.initialPassword,
         createdAt: users.createdAt,
         updatedAt: users.updatedAt,
       })
@@ -103,6 +104,7 @@ export const userService = {
         nis: input.nis || null,
         nisn: input.nisn || null,
         password: hashed,
+        initialPassword: input.password,
         role: input.role,
       })
       .returning();
